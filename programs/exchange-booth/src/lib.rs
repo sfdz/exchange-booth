@@ -56,6 +56,50 @@ pub mod exchange_booth {
             withdraw_amount
         )
     }
+
+    pub fn exchange(ctx: Context<Exchange>, source_amount: u64, ) -> Result<()> {
+        // TODO: Validate that the provided accounts match the mints
+
+        let accounts = ctx.accounts;
+
+        // TODO: Determine how much of the other token the user should get
+        let destination_amount = source_amount;
+
+        // Determine which vault is receiving user tokens and which will send tokens out.
+        // We also need to get the bump seed for the vault sending tokens out. This is for the PDA signature.
+        let (from_vault, to_vault, to_bump) = if accounts.from.mint == accounts.vault0.mint {
+            (& mut accounts.vault0, & mut accounts.vault1, *ctx.bumps.get("vault1").unwrap())
+        } else {
+            (& mut accounts.vault1, & mut accounts.vault0, *ctx.bumps.get("vault0").unwrap())
+        };
+
+        let first_transfer_result = transfer(
+            CpiContext::new(accounts.token_program.to_account_info(), Transfer {
+                from: accounts.from.to_account_info(),
+                to: from_vault.to_account_info(),
+                authority: accounts.user.to_account_info()
+            }),
+            source_amount
+        );
+        match first_transfer_result {
+            Err(e) => return Err(e),
+            Ok(_) => ()
+        }
+
+        let signer_seeds = [b"vault".as_ref(), accounts.exchange_booth.admin.as_ref(), accounts.to.mint.as_ref(), &[to_bump]];
+        transfer(
+            CpiContext::new_with_signer(
+                accounts.token_program.to_account_info(),
+                Transfer {
+                    from: to_vault.to_account_info(),
+                    to: accounts.to.to_account_info(),
+                    authority: to_vault.to_account_info() // The PDA itself is the authority
+                },
+                &[&signer_seeds]
+            ),
+            destination_amount
+        )
+    }
 }
 
 #[derive(Accounts)]
@@ -119,4 +163,32 @@ pub struct Withdraw<'info> {
     #[account(mut, seeds = [b"vault", admin.key().as_ref(), mint.key().as_ref()], bump)]
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>
+}
+
+#[derive(Accounts)]
+pub struct Exchange<'info> {
+    pub exchange_booth: Account<'info, ExchangeBooth>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    /// CHECK: Only needed to construct PDAs which will be checked against the ExchangeBooth
+    pub admin: AccountInfo<'info>,
+    pub mint0: Account<'info, Mint>,
+    pub mint1: Account<'info, Mint>,
+    #[account(
+        mut,
+        seeds = [b"vault", admin.key().as_ref(), mint0.key().as_ref()],
+        bump
+    )]
+    pub vault0: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        seeds = [b"vault", admin.key().as_ref(), mint1.key().as_ref()],
+        bump
+    )]
+    pub vault1: Box<Account<'info, TokenAccount>>,
+    #[account(mut)]
+    pub from: Box<Account<'info, TokenAccount>>,
+    #[account(mut)]
+    pub to: Box<Account<'info, TokenAccount>>,
+    pub token_program: Program<'info, Token>,
 }

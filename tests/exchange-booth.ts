@@ -21,9 +21,10 @@ describe("exchange-booth", async () => {
   // which the Wallet can sign.
   const walletKeypair = (wallet as NodeWallet).payer;
 
-  var admin: Keypair;
+  var admin: Keypair, user: Keypair;
   var mint0: PublicKey, mint1: PublicKey;
-  var tokenAccount0: Account, tokenAccount1: Account;
+  var adminTokenAccount0: Account, adminTokenAccount1: Account;
+  var userTokenAccount0: Account, userTokenAccount1: Account;
 
   before(async () => {
     mint0 = await createDefaultMint(connection, walletKeypair);
@@ -32,25 +33,28 @@ describe("exchange-booth", async () => {
 
   beforeEach(async () => {
     admin = new Keypair();
+    user = new Keypair();
 
-    console.log("Requesting airdrop of 2 sol...");
+    // Top up all parties with SOL
     await connection.requestAirdrop(wallet.publicKey, 2e9);
     await connection.requestAirdrop(admin.publicKey, 2e9);
-    console.log("Airdrop received!");
+    await connection.requestAirdrop(user.publicKey, 2e9);
 
     // Tokens don't go to the account at our public key.
     // Instead we have to create an associated token account,
     // the address of which is computed deterministically based on the mint and public key.
-    console.log("Creating admin token accounts...");
-    tokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, admin.publicKey);
-    tokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, admin.publicKey);
-    console.log("Created admin token accounts!")
+    adminTokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, admin.publicKey);
+    adminTokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, admin.publicKey);
 
-    // Give the admin some of each token, at the default wallet's expense
-    console.log("Minting tokens to admin wallet...")
-    const mintTx0 = await mintTo(connection, walletKeypair, mint0, tokenAccount0.address, walletKeypair, 100);
-    const mintTx1 = await mintTo(connection, walletKeypair, mint1, tokenAccount1.address, walletKeypair, 100);
-    console.log("Minted tokens! txid0: %s, txid1: %s", mintTx0, mintTx1);
+    userTokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, user.publicKey);
+    userTokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, user.publicKey);
+
+    // Give the admin and user some of each token, at the default wallet's expense
+    await mintTo(connection, walletKeypair, mint0, adminTokenAccount0.address, walletKeypair, 100);
+    await mintTo(connection, walletKeypair, mint1, adminTokenAccount1.address, walletKeypair, 100);
+
+    await mintTo(connection, walletKeypair, mint0, userTokenAccount0.address, walletKeypair, 100);
+    await mintTo(connection, walletKeypair, mint1, userTokenAccount1.address, walletKeypair, 100);
   });
 
   it("Initializes the exchange booth successfully", async () => {
@@ -73,7 +77,7 @@ describe("exchange-booth", async () => {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
           mint: mint0,
-          from: tokenAccount0.address,
+          from: adminTokenAccount0.address,
           vault: exchangeBoothInfo.vault0,
           tokenProgram: TOKEN_PROGRAM_ID
         },
@@ -96,7 +100,7 @@ describe("exchange-booth", async () => {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
           mint: mint0,
-          from: tokenAccount0.address,
+          from: adminTokenAccount0.address,
           vault: exchangeBoothInfo.vault0,
           tokenProgram: TOKEN_PROGRAM_ID
         },
@@ -112,7 +116,7 @@ describe("exchange-booth", async () => {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
           mint: mint0,
-          to: tokenAccount0.address,
+          to: adminTokenAccount0.address,
           vault: exchangeBoothInfo.vault0,
           tokenProgram: TOKEN_PROGRAM_ID
         },
@@ -121,6 +125,48 @@ describe("exchange-booth", async () => {
     );
 
     // ...Then the admin has the same number of tokens as they started with
+  });
+
+  it ("Allows a third party to exchange tokens", async () => {
+    // Given an existing exchange booth with tokens in vault0
+    const exchangeBoothInfo = await initializeExchangeBoothHappyPath();
+
+    await program.rpc.deposit(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          admin: admin.publicKey,
+          mint: mint0,
+          from: adminTokenAccount0.address,
+          vault: exchangeBoothInfo.vault0,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [admin]
+      }
+    );
+
+    // When a user attempts to exchange token 1 for token 0...
+    console.log(await program.rpc.exchange(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          user: user.publicKey,
+          admin: admin.publicKey,
+          mint0,
+          mint1,
+          vault0: exchangeBoothInfo.vault0,
+          vault1: exchangeBoothInfo.vault1,
+          from: userTokenAccount0.address,
+          to: userTokenAccount1.address,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [user]
+      }
+    ));
+
+    // ...Then both the user accounts and vault accounts have the expected balances
   });
 
   // Wraps the logic needed to initialize an exchange booth. This is not called in
