@@ -22,6 +22,7 @@ describe("exchange-booth", async () => {
   const walletKeypair = (wallet as NodeWallet).payer;
 
   var admin: Keypair, user: Keypair;
+  var oracle: PublicKey;
   const NUMBER_OF_MINTS = 3;
   const mints = new Array<PublicKey>(NUMBER_OF_MINTS);
   const adminTokenAccounts = new Array<Account>(NUMBER_OF_MINTS);
@@ -49,6 +50,13 @@ describe("exchange-booth", async () => {
       mintTo(connection, walletKeypair, mints[i], adminTokenAccounts[i].address, walletKeypair, 100);
       mintTo(connection, walletKeypair, mints[i], userTokenAccounts[i].address, walletKeypair, 100);
     }
+
+    // Pre-compute the dummy oracle address, leaving the intitialization up to individual tests
+    var _bump: number;
+    [oracle, _bump] = findProgramAddressSync(
+      [anchor.utils.bytes.utf8.encode("oracle"), admin.publicKey.toBytes()],
+      program.programId
+    );
   });
 
   it("Initializes the exchange booth successfully", async () => {
@@ -148,6 +156,7 @@ describe("exchange-booth", async () => {
   it ("Allows a third party to exchange tokens", async () => {
     // Given an existing exchange booth with tokens in vault0
     const exchangeBoothInfo = await initializeExchangeBoothHappyPath();
+    await initializeOracle(2, 0);
 
     await program.rpc.deposit(
       new anchor.BN(10),
@@ -190,48 +199,62 @@ describe("exchange-booth", async () => {
   // Wraps the logic needed to initialize an exchange booth. This is not called in
   // beforeEach because we also want to test cases where this is expected to fail
   async function initializeExchangeBoothHappyPath(): Promise<ExchangeBoothInfo> {
-        // Each individual exchange booth and vault is stored at a program-derived address,
-        // so we have to compute these PDAs in order to initialize them
-        const [exchangeBooth, _bump] = publicKey.findProgramAddressSync(
-          [
-            anchor.utils.bytes.utf8.encode("exchange_booth"),
-            admin.publicKey.toBytes(),
-            mints[0].toBytes(),
-            mints[1].toBytes(),
-          ], program.programId);
-    
-        const [vault0, _bump0] = findProgramAddressSync(
-          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mints[0].toBytes()],
-          program.programId
-        );
-    
-        const [vault1, _bump1] = findProgramAddressSync(
-          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mints[1].toBytes()],
-          program.programId
-        );
-    
-        // Now we have all the accounts we need and can initialize the exchange booth on-chain
-        const txid = await program.rpc.initializeExchangeBooth({
-          accounts: {
-            exchangeBooth,
-            admin: admin.publicKey,
-            mint0: mints[0],
-            mint1: mints[1],
-            vault0,
-            vault1,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            systemProgram: anchor.web3.SystemProgram.programId,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY
-          },
-          signers: [admin]
-        });
+    // Each individual exchange booth and vault is stored at a program-derived address,
+    // so we have to compute these PDAs in order to initialize them
+    const [exchangeBooth, _bump] = publicKey.findProgramAddressSync(
+      [
+        anchor.utils.bytes.utf8.encode("exchange_booth"),
+        admin.publicKey.toBytes(),
+        mints[0].toBytes(),
+        mints[1].toBytes(),
+      ], program.programId);
 
-        return {
-          publicKey: exchangeBooth,
-          vault0,
-          vault1
-        };
-    }
+    const [vault0, _bump0] = findProgramAddressSync(
+      [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mints[0].toBytes()],
+      program.programId
+    );
+
+    const [vault1, _bump1] = findProgramAddressSync(
+      [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mints[1].toBytes()],
+      program.programId
+    );
+
+    // Now we have all the accounts we need and can initialize the exchange booth on-chain
+    const txid = await program.rpc.initializeExchangeBooth({
+      accounts: {
+        exchangeBooth,
+        admin: admin.publicKey,
+        mint0: mints[0],
+        mint1: mints[1],
+        vault0,
+        vault1,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY
+      },
+      signers: [admin]
+    });
+
+    return {
+      publicKey: exchangeBooth,
+      vault0,
+      vault1
+    };
+  }
+
+  async function initializeOracle(price: number, exponent: number) {
+    await program.rpc.initializeOracle(
+      new anchor.BN(price),
+      new anchor.BN(exponent),
+      {
+        accounts: {
+          oracle,
+          admin: admin.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId
+        },
+        signers: [admin]
+      });
+  }
 });
 
 // Create a mint where the fee-payer, mint authority, and freeze authority are all the same

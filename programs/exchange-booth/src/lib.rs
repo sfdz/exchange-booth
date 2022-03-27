@@ -66,7 +66,7 @@ pub mod exchange_booth {
         )
     }
 
-    pub fn exchange(ctx: Context<Exchange>, source_amount: u64, ) -> Result<()> {
+    pub fn exchange(ctx: Context<Exchange>, source_amount: u64) -> Result<()> {
         // TODO: Validate that the provided accounts match the mints
 
         let accounts = ctx.accounts;
@@ -108,5 +108,15 @@ pub mod exchange_booth {
             ),
             destination_amount
         )
+    }
+
+    // Initialize the mock oracle with the given fixed-point price
+    pub fn initialize_oracle(ctx: Context<InitializeOracle>, price: i64, exponent: i32) -> Result<()> {
+        let oracle = & mut ctx.accounts.oracle;
+
+        oracle.price = price;
+        oracle.exponent = exponent;
+
+        Ok(())
     }
 }
