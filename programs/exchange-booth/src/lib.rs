@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, Mint, TokenAccount, Transfer, transfer};
-use state::ExchangeBooth;
+use anchor_spl::token::{Transfer, transfer};
+use instructions::*;
 
+pub mod instructions;
 pub mod state;
+
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
@@ -107,95 +109,4 @@ pub mod exchange_booth {
             destination_amount
         )
     }
-}
-
-#[derive(Accounts)]
-pub struct InitializeExchangeBooth<'info> {
-    #[account(
-        init,
-        payer = admin,
-        seeds = [b"exchange_booth", admin.key().as_ref(), mint0.key().as_ref(), mint1.key().as_ref()],
-        bump,
-        space = ExchangeBooth::LEN
-    )]
-    pub exchange_booth: Account<'info, ExchangeBooth>,
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    pub mint0: Account<'info, Mint>,
-    pub mint1: Account<'info, Mint>,
-    #[account(
-        init,
-        payer = admin,
-        token::mint = mint0,
-        token::authority = vault0,
-        seeds = [b"vault", admin.key().as_ref(), mint0.key().as_ref()],
-        bump
-    )]
-    pub vault0: Account<'info, TokenAccount>,
-    #[account(
-        init,
-        payer = admin,
-        token::mint = mint1,
-        token::authority = vault1,
-        seeds = [b"vault", admin.key().as_ref(), mint1.key().as_ref()],
-        bump
-    )]
-    pub vault1: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>
-}
-
-#[derive(Accounts)]
-pub struct Deposit<'info> {
-    pub exchange_booth: Account<'info, ExchangeBooth>,
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    pub mint: Account<'info, Mint>,
-    #[account(mut)]
-    pub from: Account<'info, TokenAccount>,
-    #[account(mut, seeds = [b"vault", admin.key().as_ref(), mint.key().as_ref()], bump)]
-    pub vault: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>
-}
-
-#[derive(Accounts)]
-pub struct Withdraw<'info> {
-    pub exchange_booth: Account<'info, ExchangeBooth>,
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    pub mint: Account<'info, Mint>,
-    #[account(mut)]
-    pub to: Account<'info, TokenAccount>,
-    #[account(mut, seeds = [b"vault", admin.key().as_ref(), mint.key().as_ref()], bump)]
-    pub vault: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>
-}
-
-#[derive(Accounts)]
-pub struct Exchange<'info> {
-    pub exchange_booth: Account<'info, ExchangeBooth>,
-    #[account(mut)]
-    pub user: Signer<'info>,
-    /// CHECK: Only needed to construct PDAs which will be checked against the ExchangeBooth
-    pub admin: AccountInfo<'info>,
-    pub mint0: Account<'info, Mint>,
-    pub mint1: Account<'info, Mint>,
-    #[account(
-        mut,
-        seeds = [b"vault", admin.key().as_ref(), mint0.key().as_ref()],
-        bump
-    )]
-    pub vault0: Box<Account<'info, TokenAccount>>,
-    #[account(
-        mut,
-        seeds = [b"vault", admin.key().as_ref(), mint1.key().as_ref()],
-        bump
-    )]
-    pub vault1: Box<Account<'info, TokenAccount>>,
-    #[account(mut)]
-    pub from: Box<Account<'info, TokenAccount>>,
-    #[account(mut)]
-    pub to: Box<Account<'info, TokenAccount>>,
-    pub token_program: Program<'info, Token>,
 }
