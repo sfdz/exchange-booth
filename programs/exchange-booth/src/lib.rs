@@ -12,7 +12,7 @@ pub mod exchange_booth {
     // This function handles the InitializeExchangeBooth instruction.
     // We know that when this function begins executing, all accounts in the
     // InitializeExchangeBooth struct have been created successfully.
-    // All that's left to do is modify the ExchangeBooth struct, which will be
+    // All that's left to do is to modify the ExchangeBooth struct, which will be
     // serialized back to the blockchain for us.
     pub fn initialize_exchange_booth(ctx: Context<InitializeExchangeBooth>) -> Result<()> {
         msg!("New accounts created! Initializing exchange booth...");
@@ -32,6 +32,7 @@ pub mod exchange_booth {
     // Note that non-account instruction data is specified in this function header,
     // in this case the number of tokens to deposit.
     pub fn deposit(ctx: Context<Deposit>, deposit_amount: u64) -> Result<()> {
+        // TODO: Validate that the given token belongs in this exchange booth
         let accounts = ctx.accounts;
         transfer(
             CpiContext::new(accounts.token_program.to_account_info(), Transfer {
@@ -87,8 +88,9 @@ pub struct Deposit<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     pub mint: Account<'info, Mint>,
+    #[account(mut)]
     pub from: Account<'info, TokenAccount>,
-    #[account(seeds = [b"vault", admin.key().as_ref(), mint.key().as_ref()], bump)]
+    #[account(mut, seeds = [b"vault", admin.key().as_ref(), mint.key().as_ref()], bump)]
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>
 }

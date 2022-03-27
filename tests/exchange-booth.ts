@@ -3,7 +3,7 @@ import { Program } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js"
 import { Connection, Signer, Keypair } from '@solana/web3.js'
 import { ExchangeBooth } from "../target/types/exchange_booth";
-import { createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { Account, createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import NodeWallet from "@project-serum/anchor/dist/cjs/nodewallet";
 import { publicKey, token } from "@project-serum/anchor/dist/cjs/utils";
 import { findProgramAddressSync } from "@project-serum/anchor/dist/cjs/utils/pubkey";
@@ -23,6 +23,7 @@ describe("exchange-booth", async () => {
 
   var admin: Keypair;
   var mint0: PublicKey, mint1: PublicKey;
+  var tokenAccount0: Account, tokenAccount1: Account;
 
   before(async () => {
     mint0 = await createDefaultMint(connection, walletKeypair);
@@ -41,8 +42,8 @@ describe("exchange-booth", async () => {
     // Instead we have to create an associated token account,
     // the address of which is computed deterministically based on the mint and public key.
     console.log("Creating admin token accounts...");
-    const tokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, admin.publicKey);
-    const tokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, admin.publicKey);
+    tokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, admin.publicKey);
+    tokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, admin.publicKey);
     console.log("Created admin token accounts!")
 
     // Give the admin some of each token, at the default wallet's expense
@@ -59,7 +60,27 @@ describe("exchange-booth", async () => {
   });
 
   it("Allows the admin to deposit successfully", async () => {
-    initializeExchangeBoothHappyPath();
+    const exchangeBoothInfo = await initializeExchangeBoothHappyPath();
+
+    console.log("Depositing tokens to vault0...");
+
+    const txid = await program.rpc.deposit(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          admin: admin.publicKey,
+          mint: mint0,
+          from: tokenAccount0.address,
+          vault: exchangeBoothInfo.vault0,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [admin]
+      });
+
+      // TODO: validate that the vault now contains the expected amount of tokens
+
+      console.log("Deposited tokens to vault0! txid: %s", txid);
   });
 
   // Wraps the logic needed to initialize an exchange booth. This is not called in
