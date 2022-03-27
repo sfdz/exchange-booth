@@ -25,6 +25,7 @@ pub mod exchange_booth {
         exchange_booth.vault0 = accounts.vault0.key();
         exchange_booth.vault1 = accounts.vault1.key();
         exchange_booth.admin = accounts.admin.key();
+        exchange_booth.oracle = accounts.oracle.key();
 
         msg!("Exchange booth initialized!");
 

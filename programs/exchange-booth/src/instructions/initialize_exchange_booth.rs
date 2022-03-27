@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, Mint, TokenAccount};
 
-use crate::state::ExchangeBooth;
+use crate::state::{ExchangeBooth, Oracle};
 
 // The accounts needed for the InitializeExchangeBooth instruciton
 #[derive(Accounts)]
@@ -23,7 +23,7 @@ pub struct InitializeExchangeBooth<'info> {
     // Note that the PDA of the vaults is independent of the exchange booth,
     // so the admin can deposit to one vault and the funds will provide liquidity
     // to all of their exchange booths that use that token.
-    // TODO: convert init to init_if_needed and protect against re-initialization attacks
+    // TODO: convert init to init_if_needed and also protect against re-initialization attacks
     #[account(
         init,
         payer = admin,
@@ -32,7 +32,9 @@ pub struct InitializeExchangeBooth<'info> {
         seeds = [b"vault", admin.key().as_ref(), mint0.key().as_ref()],
         bump
     )]
-    pub vault0: Account<'info, TokenAccount>,
+    // Box allocates the accounts to the heap, which is a workaround for errors like
+    // `Stack offset of 4152 exceeded max offset of 4096 by 56 bytes, please minimize large stack variables`
+    pub vault0: Box<Account<'info, TokenAccount>>,
     #[account(
         init,
         payer = admin,
@@ -41,7 +43,8 @@ pub struct InitializeExchangeBooth<'info> {
         seeds = [b"vault", admin.key().as_ref(), mint1.key().as_ref()],
         bump
     )]
-    pub vault1: Account<'info, TokenAccount>,
+    pub vault1: Box<Account<'info, TokenAccount>>,
+    pub oracle: Account<'info, Oracle>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     // Required to create token accounts

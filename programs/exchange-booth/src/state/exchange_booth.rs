@@ -10,8 +10,9 @@ pub struct ExchangeBooth {
     pub vault1: Pubkey,
     pub admin: Pubkey,
     // Mints are stored within the token accounts at vault0 and vault1
+    pub oracle: Pubkey
 }
 
 impl ExchangeBooth {
-    pub const LEN: usize = DISCRIMINATOR_LENGTH + (3 * PUBLIC_KEY_LENGTH);
+    pub const LEN: usize = DISCRIMINATOR_LENGTH + (4 * PUBLIC_KEY_LENGTH);
 }
