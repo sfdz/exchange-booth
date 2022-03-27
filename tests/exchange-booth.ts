@@ -65,7 +65,7 @@ describe("exchange-booth", async () => {
     // TODO: Validate that the expected addresses were written to the chain
   });
 
-  it("Allows the admin to deposit successfully", async () => {
+  it("Allows the admin to deposit to vault 0 successfully", async () => {
     // Given an existing, empty exchange booth
     const exchangeBoothInfo = await initializeExchangeBoothHappyPath();
 
@@ -79,6 +79,30 @@ describe("exchange-booth", async () => {
           mint: mint0,
           from: adminTokenAccount0.address,
           vault: exchangeBoothInfo.vault0,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [admin]
+      }
+    );
+
+    // ...Then the vault contains the expected number of tokens
+    // TODO: validate that the vault now contains the expected amount of tokens
+  });
+
+  it("Allows the admin to deposit to vault 1 successfully", async () => {
+    // Given an existing, empty exchange booth
+    const exchangeBoothInfo = await initializeExchangeBoothHappyPath();
+
+    // When the admin attempts to deposit tokens to vault0...
+    const txid = await program.rpc.deposit(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          admin: admin.publicKey,
+          mint: mint1,
+          from: adminTokenAccount1.address,
+          vault: exchangeBoothInfo.vault1,
           tokenProgram: TOKEN_PROGRAM_ID
         },
         signers: [admin]
@@ -137,9 +161,9 @@ describe("exchange-booth", async () => {
         accounts: {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
-          mint: mint0,
-          from: adminTokenAccount0.address,
-          vault: exchangeBoothInfo.vault0,
+          mint: mint1,
+          from: adminTokenAccount1.address,
+          vault: exchangeBoothInfo.vault1,
           tokenProgram: TOKEN_PROGRAM_ID
         },
         signers: [admin]

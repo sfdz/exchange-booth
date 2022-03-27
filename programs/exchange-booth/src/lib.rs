@@ -47,13 +47,20 @@ pub mod exchange_booth {
     pub fn withdraw(ctx: Context<Withdraw>, withdraw_amount: u64) -> Result<()> {
         // TODO: Validate that the given token belongs in this exchange booth
         let accounts = ctx.accounts;
+
+        let bump_seed = *ctx.bumps.get("vault").unwrap();
+        let signer_seeds = [b"vault".as_ref(), accounts.exchange_booth.admin.as_ref(), accounts.to.mint.as_ref(), &[bump_seed]];
         transfer(
-            CpiContext::new(accounts.token_program.to_account_info(), Transfer {
-                from: accounts.vault.to_account_info(),
-                to: accounts.to.to_account_info(),
-                authority: accounts.admin.to_account_info()
-            }),
-            withdraw_amount
+            CpiContext::new_with_signer(
+                accounts.token_program.to_account_info(),
+                Transfer {
+                    from: accounts.vault.to_account_info(),
+                    to: accounts.to.to_account_info(),
+                    authority: accounts.vault.to_account_info()
+                },
+                &[&signer_seeds]
+                ),
+                withdraw_amount
         )
     }
 
@@ -120,7 +127,7 @@ pub struct InitializeExchangeBooth<'info> {
         init,
         payer = admin,
         token::mint = mint0,
-        token::authority = admin,
+        token::authority = vault0,
         seeds = [b"vault", admin.key().as_ref(), mint0.key().as_ref()],
         bump
     )]
@@ -129,7 +136,7 @@ pub struct InitializeExchangeBooth<'info> {
         init,
         payer = admin,
         token::mint = mint1,
-        token::authority = admin,
+        token::authority = vault1,
         seeds = [b"vault", admin.key().as_ref(), mint1.key().as_ref()],
         bump
     )]
