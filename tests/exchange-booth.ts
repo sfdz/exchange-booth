@@ -22,18 +22,17 @@ describe("exchange-booth", async () => {
   const walletKeypair = (wallet as NodeWallet).payer;
 
   var admin: Keypair, user: Keypair;
-  var mint0: PublicKey, mint1: PublicKey;
+  const NUMBER_OF_MINTS = 3;
+  const mints = new Array<PublicKey>(NUMBER_OF_MINTS);
   var adminTokenAccount0: Account, adminTokenAccount1: Account;
   var userTokenAccount0: Account, userTokenAccount1: Account;
-
-  before(async () => {
-    mint0 = await createDefaultMint(connection, walletKeypair);
-    mint1 = await createDefaultMint(connection, walletKeypair);
-  });
 
   beforeEach(async () => {
     admin = new Keypair();
     user = new Keypair();
+    for(let i = 0; i < NUMBER_OF_MINTS; i++) {
+      mints[i] = await createDefaultMint(connection, walletKeypair);
+    }
 
     // Top up all parties with SOL
     await connection.requestAirdrop(wallet.publicKey, 2e9);
@@ -43,18 +42,18 @@ describe("exchange-booth", async () => {
     // Tokens don't go to the account at our public key.
     // Instead we have to create an associated token account,
     // the address of which is computed deterministically based on the mint and public key.
-    adminTokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, admin.publicKey);
-    adminTokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, admin.publicKey);
+    adminTokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mints[0], admin.publicKey);
+    adminTokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mints[1], admin.publicKey);
 
-    userTokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, user.publicKey);
-    userTokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, user.publicKey);
+    userTokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mints[0], user.publicKey);
+    userTokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mints[1], user.publicKey);
 
     // Give the admin and user some of each token, at the default wallet's expense
-    await mintTo(connection, walletKeypair, mint0, adminTokenAccount0.address, walletKeypair, 100);
-    await mintTo(connection, walletKeypair, mint1, adminTokenAccount1.address, walletKeypair, 100);
+    await mintTo(connection, walletKeypair, mints[0], adminTokenAccount0.address, walletKeypair, 100);
+    await mintTo(connection, walletKeypair, mints[1], adminTokenAccount1.address, walletKeypair, 100);
 
-    await mintTo(connection, walletKeypair, mint0, userTokenAccount0.address, walletKeypair, 100);
-    await mintTo(connection, walletKeypair, mint1, userTokenAccount1.address, walletKeypair, 100);
+    await mintTo(connection, walletKeypair, mints[0], userTokenAccount0.address, walletKeypair, 100);
+    await mintTo(connection, walletKeypair, mints[1], userTokenAccount1.address, walletKeypair, 100);
   });
 
   it("Initializes the exchange booth successfully", async () => {
@@ -76,7 +75,7 @@ describe("exchange-booth", async () => {
         accounts: {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
-          mint: mint0,
+          mint: mints[0],
           from: adminTokenAccount0.address,
           vault: exchangeBoothInfo.vault0,
           tokenProgram: TOKEN_PROGRAM_ID
@@ -100,7 +99,7 @@ describe("exchange-booth", async () => {
         accounts: {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
-          mint: mint1,
+          mint: mints[1],
           from: adminTokenAccount1.address,
           vault: exchangeBoothInfo.vault1,
           tokenProgram: TOKEN_PROGRAM_ID
@@ -123,7 +122,7 @@ describe("exchange-booth", async () => {
         accounts: {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
-          mint: mint0,
+          mint: mints[0],
           from: adminTokenAccount0.address,
           vault: exchangeBoothInfo.vault0,
           tokenProgram: TOKEN_PROGRAM_ID
@@ -139,7 +138,7 @@ describe("exchange-booth", async () => {
         accounts: {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
-          mint: mint0,
+          mint: mints[0],
           to: adminTokenAccount0.address,
           vault: exchangeBoothInfo.vault0,
           tokenProgram: TOKEN_PROGRAM_ID
@@ -161,7 +160,7 @@ describe("exchange-booth", async () => {
         accounts: {
           exchangeBooth: exchangeBoothInfo.publicKey,
           admin: admin.publicKey,
-          mint: mint1,
+          mint: mints[1],
           from: adminTokenAccount1.address,
           vault: exchangeBoothInfo.vault1,
           tokenProgram: TOKEN_PROGRAM_ID
@@ -178,8 +177,8 @@ describe("exchange-booth", async () => {
           exchangeBooth: exchangeBoothInfo.publicKey,
           user: user.publicKey,
           admin: admin.publicKey,
-          mint0,
-          mint1,
+          mint0: mints[0],
+          mint1: mints[1],
           vault0: exchangeBoothInfo.vault0,
           vault1: exchangeBoothInfo.vault1,
           from: userTokenAccount0.address,
@@ -202,17 +201,17 @@ describe("exchange-booth", async () => {
           [
             anchor.utils.bytes.utf8.encode("exchange_booth"),
             admin.publicKey.toBytes(),
-            mint0.toBytes(),
-            mint1.toBytes(),
+            mints[0].toBytes(),
+            mints[1].toBytes(),
           ], program.programId);
     
         const [vault0, _bump0] = findProgramAddressSync(
-          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint0.toBytes()],
+          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mints[0].toBytes()],
           program.programId
         );
     
         const [vault1, _bump1] = findProgramAddressSync(
-          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint1.toBytes()],
+          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mints[1].toBytes()],
           program.programId
         );
     
@@ -221,8 +220,8 @@ describe("exchange-booth", async () => {
           accounts: {
             exchangeBooth,
             admin: admin.publicKey,
-            mint0,
-            mint1,
+            mint0: mints[0],
+            mint1: mints[1],
             vault0,
             vault1,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -243,19 +242,13 @@ describe("exchange-booth", async () => {
 
 // Create a mint where the fee-payer, mint authority, and freeze authority are all the same
 async function createDefaultMint(connection: Connection, authority: Signer) {
-  console.log("Creating mint...");
-
-  const mint = await createMint(
+  return await createMint(
     connection,
     authority,
     authority.publicKey,
     authority.publicKey,
     9 // location of the decimal point
   );
-
-  console.log("Mint %s created successfully!", mint.toBase58());
-
-  return mint
 }
 
 type ExchangeBoothInfo = {
