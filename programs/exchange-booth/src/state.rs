@@ -5,10 +5,9 @@ const PUBLIC_KEY_LENGTH: usize = 32;
 
 #[account]
 pub struct ExchangeBooth {
-    mint0: Pubkey,
-    mint1: Pubkey,
-    admin: Pubkey,
-    // seeds = ["token", exchange booth address, "token0"]
+    pub vault0: Pubkey,
+    pub vault1: Pubkey,
+    pub admin: Pubkey,
 }
 
 impl ExchangeBooth {

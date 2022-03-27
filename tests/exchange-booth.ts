@@ -3,9 +3,10 @@ import { Program } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js"
 import { Connection, Signer, Keypair } from '@solana/web3.js'
 import { ExchangeBooth } from "../target/types/exchange_booth";
-import { createMint, getOrCreateAssociatedTokenAccount, mintTo } from '@solana/spl-token';
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import NodeWallet from "@project-serum/anchor/dist/cjs/nodewallet";
-import { publicKey } from "@project-serum/anchor/dist/cjs/utils";
+import { publicKey, token } from "@project-serum/anchor/dist/cjs/utils";
+import { findProgramAddressSync } from "@project-serum/anchor/dist/cjs/utils/pubkey";
 
 describe("exchange-booth", async () => {
   // Configure the client to use the local cluster.
@@ -30,6 +31,11 @@ describe("exchange-booth", async () => {
   it("Initializes the exchange booth successfully", async () => {
     const admin = new Keypair();
 
+    console.log("Requesting airdrop of 2 sol...");
+    await connection.requestAirdrop(wallet.publicKey, 2e9);
+    await connection.requestAirdrop(admin.publicKey, 2e9);
+    console.log("Airdrop received!");
+
     // Tokens don't go to the account at our public key.
     // Instead we have to create an associated token account,
     // the address of which is computed deterministically based on the mint and public key.
@@ -38,12 +44,14 @@ describe("exchange-booth", async () => {
     const tokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, admin.publicKey);
     console.log("Created admin token accounts!")
 
-    // Give the new account some of each token, at the default wallet's expense
+    // Give the admin some of each token, at the default wallet's expense
     console.log("Minting tokens to admin wallet...")
     const mintTx0 = await mintTo(connection, walletKeypair, mint0, tokenAccount0.address, walletKeypair, 100);
     const mintTx1 = await mintTo(connection, walletKeypair, mint1, tokenAccount1.address, walletKeypair, 100);
     console.log("Minted tokens! txid0: %s, txid1: %s", mintTx0, mintTx1);
 
+    // Each individual exchange booth and vault is stored at a program-derived address,
+    // so we have to compute these PDAs in order to initialize them
     const [exchangeBooth, _bump] = publicKey.findProgramAddressSync(
       [
         anchor.utils.bytes.utf8.encode("exchange_booth"),
@@ -51,7 +59,32 @@ describe("exchange-booth", async () => {
         mint0.toBytes(),
         mint1.toBytes(),
       ], program.programId);
-  })
+
+    const [vault0, _bump0] = findProgramAddressSync(
+      [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint0.toBytes()],
+      program.programId
+    );
+
+    const [vault1, _bump1] = findProgramAddressSync(
+      [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint1.toBytes()],
+      program.programId
+    );
+
+    console.log(await program.rpc.initializeExchangeBooth({
+      accounts: {
+        exchangeBooth,
+        admin: admin.publicKey,
+        mint0,
+        mint1,
+        vault0,
+        vault1,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY
+      },
+      signers: [admin]
+    }));
+  });
 });
 
 // Create a mint where the fee-payer, mint authority, and freeze authority are all the same
