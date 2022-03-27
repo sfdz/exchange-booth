@@ -165,7 +165,7 @@ describe("exchange-booth", async () => {
     );
 
     // When a user attempts to exchange token 1 for token 0...
-    console.log(await program.rpc.exchange(
+    await program.rpc.exchange(
       new anchor.BN(10),
       {
         accounts: {
@@ -182,7 +182,7 @@ describe("exchange-booth", async () => {
         },
         signers: [user]
       }
-    ));
+    );
 
     // ...Then both the user accounts and vault accounts have the expected balances
   });
@@ -225,7 +225,6 @@ describe("exchange-booth", async () => {
           },
           signers: [admin]
         });
-        console.log("Initialized exchange booth! txid: %s", txid);
 
         return {
           publicKey: exchangeBooth,
