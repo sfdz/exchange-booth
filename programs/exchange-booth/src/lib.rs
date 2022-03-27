@@ -43,6 +43,19 @@ pub mod exchange_booth {
             deposit_amount
         )
     }
+
+    pub fn withdraw(ctx: Context<Withdraw>, withdraw_amount: u64) -> Result<()> {
+        // TODO: Validate that the given token belongs in this exchange booth
+        let accounts = ctx.accounts;
+        transfer(
+            CpiContext::new(accounts.token_program.to_account_info(), Transfer {
+                from: accounts.vault.to_account_info(),
+                to: accounts.to.to_account_info(),
+                authority: accounts.admin.to_account_info()
+            }),
+            withdraw_amount
+        )
+    }
 }
 
 #[derive(Accounts)]
@@ -90,6 +103,19 @@ pub struct Deposit<'info> {
     pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub from: Account<'info, TokenAccount>,
+    #[account(mut, seeds = [b"vault", admin.key().as_ref(), mint.key().as_ref()], bump)]
+    pub vault: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>
+}
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    pub exchange_booth: Account<'info, ExchangeBooth>,
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub to: Account<'info, TokenAccount>,
     #[account(mut, seeds = [b"vault", admin.key().as_ref(), mint.key().as_ref()], bump)]
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>

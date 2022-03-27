@@ -54,16 +54,18 @@ describe("exchange-booth", async () => {
   });
 
   it("Initializes the exchange booth successfully", async () => {
+    // When the admin attempts to initialize an exchange booth...
     initializeExchangeBoothHappyPath();
 
+    // Then the exchange booth and vaults exist on-chain
     // TODO: Validate that the expected addresses were written to the chain
   });
 
   it("Allows the admin to deposit successfully", async () => {
+    // Given an existing, empty exchange booth
     const exchangeBoothInfo = await initializeExchangeBoothHappyPath();
 
-    console.log("Depositing tokens to vault0...");
-
+    // When the admin attempts to deposit tokens to vault0...
     const txid = await program.rpc.deposit(
       new anchor.BN(10),
       {
@@ -76,11 +78,49 @@ describe("exchange-booth", async () => {
           tokenProgram: TOKEN_PROGRAM_ID
         },
         signers: [admin]
-      });
+      }
+    );
 
-      // TODO: validate that the vault now contains the expected amount of tokens
+    // ...Then the vault contains the expected number of tokens
+    // TODO: validate that the vault now contains the expected amount of tokens
+  });
 
-      console.log("Deposited tokens to vault0! txid: %s", txid);
+  it("Allows the admin to withdraw successfully", async () => {
+    // Given an existing exchange booth with tokens in vault0
+    const exchangeBoothInfo = await initializeExchangeBoothHappyPath();
+
+    await program.rpc.deposit(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          admin: admin.publicKey,
+          mint: mint0,
+          from: tokenAccount0.address,
+          vault: exchangeBoothInfo.vault0,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [admin]
+      }
+    );
+
+    // When the admin attempts to withdraw tokens from vault0...
+    await program.rpc.withdraw(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          admin: admin.publicKey,
+          mint: mint0,
+          to: tokenAccount0.address,
+          vault: exchangeBoothInfo.vault0,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [admin]
+      }
+    );
+
+    // ...Then the admin has the same number of tokens as they started with
   });
 
   // Wraps the logic needed to initialize an exchange booth. This is not called in
