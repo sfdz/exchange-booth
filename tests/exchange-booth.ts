@@ -1,9 +1,11 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
-import { Connection, Signer} from '@solana/web3.js'
+import { PublicKey } from "@solana/web3.js"
+import { Connection, Signer, Keypair } from '@solana/web3.js'
 import { ExchangeBooth } from "../target/types/exchange_booth";
-import { createMint } from '@solana/spl-token';
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo } from '@solana/spl-token';
 import NodeWallet from "@project-serum/anchor/dist/cjs/nodewallet";
+import { publicKey } from "@project-serum/anchor/dist/cjs/utils";
 
 describe("exchange-booth", async () => {
   // Configure the client to use the local cluster.
@@ -18,14 +20,38 @@ describe("exchange-booth", async () => {
   // which the Wallet can sign.
   const walletKeypair = (wallet as NodeWallet).payer;
 
-  const mint0 = await createDefaultMint(connection, walletKeypair);
-  const mint1 = await createDefaultMint(connection, walletKeypair);
+  var mint0: PublicKey, mint1: PublicKey;
 
-  it("Is initialized!", async () => {
-    // Add your test here.
-    const tx = await program.rpc.initialize({});
-    console.log("Your transaction signature", tx);
+  before(async () => {
+    mint0 = await createDefaultMint(connection, walletKeypair);
+    mint1 = await createDefaultMint(connection, walletKeypair);
   });
+
+  it("Initializes the exchange booth successfully", async () => {
+    const admin = new Keypair();
+
+    // Tokens don't go to the account at our public key.
+    // Instead we have to create an associated token account,
+    // the address of which is computed deterministically based on the mint and public key.
+    console.log("Creating admin token accounts...");
+    const tokenAccount0 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint0, admin.publicKey);
+    const tokenAccount1 = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, mint1, admin.publicKey);
+    console.log("Created admin token accounts!")
+
+    // Give the new account some of each token, at the default wallet's expense
+    console.log("Minting tokens to admin wallet...")
+    const mintTx0 = await mintTo(connection, walletKeypair, mint0, tokenAccount0.address, walletKeypair, 100);
+    const mintTx1 = await mintTo(connection, walletKeypair, mint1, tokenAccount1.address, walletKeypair, 100);
+    console.log("Minted tokens! txid0: %s, txid1: %s", mintTx0, mintTx1);
+
+    const [exchangeBooth, _bump] = publicKey.findProgramAddressSync(
+      [
+        anchor.utils.bytes.utf8.encode("exchange_booth"),
+        admin.publicKey.toBytes(),
+        mint0.toBytes(),
+        mint1.toBytes(),
+      ], program.programId);
+  })
 });
 
 // Create a mint where the fee-payer, mint authority, and freeze authority are all the same
