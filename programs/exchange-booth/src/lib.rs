@@ -9,6 +9,11 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 pub mod exchange_booth {
     use super::*;
 
+    // This function handles the InitializeExchangeBooth instruction.
+    // We know that when this function begins executing, all accounts in the
+    // InitializeExchangeBooth struct have been created successfully.
+    // All that's left to do is modify the ExchangeBooth struct, which will be
+    // serialized back to the blockchain for us.
     pub fn initialize_exchange_booth(ctx: Context<InitializeExchangeBooth>) -> Result<()> {
         msg!("New accounts created! Initializing exchange booth...");
 
@@ -24,6 +29,8 @@ pub mod exchange_booth {
         Ok(())
     }
 
+    // Note that non-account instruction data is specified in this function header,
+    // in this case the number of tokens to deposit.
     pub fn deposit(ctx: Context<Deposit>, deposit_amount: u64) -> Result<()> {
         let accounts = ctx.accounts;
         transfer(

@@ -21,6 +21,7 @@ describe("exchange-booth", async () => {
   // which the Wallet can sign.
   const walletKeypair = (wallet as NodeWallet).payer;
 
+  var admin: Keypair;
   var mint0: PublicKey, mint1: PublicKey;
 
   before(async () => {
@@ -28,8 +29,8 @@ describe("exchange-booth", async () => {
     mint1 = await createDefaultMint(connection, walletKeypair);
   });
 
-  it("Initializes the exchange booth successfully", async () => {
-    const admin = new Keypair();
+  beforeEach(async () => {
+    admin = new Keypair();
 
     console.log("Requesting airdrop of 2 sol...");
     await connection.requestAirdrop(wallet.publicKey, 2e9);
@@ -49,42 +50,64 @@ describe("exchange-booth", async () => {
     const mintTx0 = await mintTo(connection, walletKeypair, mint0, tokenAccount0.address, walletKeypair, 100);
     const mintTx1 = await mintTo(connection, walletKeypair, mint1, tokenAccount1.address, walletKeypair, 100);
     console.log("Minted tokens! txid0: %s, txid1: %s", mintTx0, mintTx1);
-
-    // Each individual exchange booth and vault is stored at a program-derived address,
-    // so we have to compute these PDAs in order to initialize them
-    const [exchangeBooth, _bump] = publicKey.findProgramAddressSync(
-      [
-        anchor.utils.bytes.utf8.encode("exchange_booth"),
-        admin.publicKey.toBytes(),
-        mint0.toBytes(),
-        mint1.toBytes(),
-      ], program.programId);
-
-    const [vault0, _bump0] = findProgramAddressSync(
-      [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint0.toBytes()],
-      program.programId
-    );
-
-    const [vault1, _bump1] = findProgramAddressSync(
-      [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint1.toBytes()],
-      program.programId
-    );
-
-    console.log(await program.rpc.initializeExchangeBooth({
-      accounts: {
-        exchangeBooth,
-        admin: admin.publicKey,
-        mint0,
-        mint1,
-        vault0,
-        vault1,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY
-      },
-      signers: [admin]
-    }));
   });
+
+  it("Initializes the exchange booth successfully", async () => {
+    initializeExchangeBoothHappyPath();
+
+    // TODO: Validate that the expected addresses were written to the chain
+  });
+
+  it("Allows the admin to deposit successfully", async () => {
+    initializeExchangeBoothHappyPath();
+  });
+
+  // Wraps the logic needed to initialize an exchange booth. This is not called in
+  // beforeEach because we also want to test cases where this is expected to fail
+  async function initializeExchangeBoothHappyPath(): Promise<ExchangeBoothInfo> {
+        // Each individual exchange booth and vault is stored at a program-derived address,
+        // so we have to compute these PDAs in order to initialize them
+        const [exchangeBooth, _bump] = publicKey.findProgramAddressSync(
+          [
+            anchor.utils.bytes.utf8.encode("exchange_booth"),
+            admin.publicKey.toBytes(),
+            mint0.toBytes(),
+            mint1.toBytes(),
+          ], program.programId);
+    
+        const [vault0, _bump0] = findProgramAddressSync(
+          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint0.toBytes()],
+          program.programId
+        );
+    
+        const [vault1, _bump1] = findProgramAddressSync(
+          [anchor.utils.bytes.utf8.encode("vault"), admin.publicKey.toBytes(), mint1.toBytes()],
+          program.programId
+        );
+    
+        // Now we have all the accounts we need and can initialize the exchange booth on-chain
+        const txid = await program.rpc.initializeExchangeBooth({
+          accounts: {
+            exchangeBooth,
+            admin: admin.publicKey,
+            mint0,
+            mint1,
+            vault0,
+            vault1,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: anchor.web3.SystemProgram.programId,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY
+          },
+          signers: [admin]
+        });
+        console.log("Initialized exchange booth! txid: %s", txid);
+
+        return {
+          publicKey: exchangeBooth,
+          vault0,
+          vault1
+        };
+    }
 });
 
 // Create a mint where the fee-payer, mint authority, and freeze authority are all the same
@@ -102,4 +125,10 @@ async function createDefaultMint(connection: Connection, authority: Signer) {
   console.log("Mint %s created successfully!", mint.toBase58());
 
   return mint
+}
+
+type ExchangeBoothInfo = {
+  publicKey: PublicKey,
+  vault0: PublicKey,
+  vault1: PublicKey
 }
