@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 const DISCRIMINATOR_LENGTH: usize = 8;
 const PUBLIC_KEY_LENGTH: usize = 32;
 
+// Represents the on-chain data associated with each individual exchange booth
 #[account]
 pub struct ExchangeBooth {
     pub vault0: Pubkey,

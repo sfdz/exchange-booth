@@ -3,6 +3,7 @@ use anchor_spl::token::{Token, Mint, TokenAccount};
 
 use crate::state::ExchangeBooth;
 
+// The accounts needed for the Withdraw instruction
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     pub exchange_booth: Account<'info, ExchangeBooth>,

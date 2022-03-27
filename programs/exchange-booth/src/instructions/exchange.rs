@@ -3,6 +3,7 @@ use anchor_spl::token::{Token, Mint, TokenAccount};
 
 use crate::state::ExchangeBooth;
 
+// The accounts needed for the exchange instruction
 #[derive(Accounts)]
 pub struct Exchange<'info> {
     pub exchange_booth: Account<'info, ExchangeBooth>,
