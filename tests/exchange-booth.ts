@@ -54,7 +54,7 @@ describe("exchange-booth", async () => {
 
   it("Initializes the exchange booth successfully", async () => {
     // When the admin attempts to initialize an exchange booth...
-    initializeExchangeBoothHappyPath(2, 0); // Price is (2 * 10^0) of token 1 per token 0
+    await initializeExchangeBoothHappyPath(2, 0); // Price is (2 * 10^0) of token 1 per token 0
 
     // Then the exchange booth and vaults exist on-chain
     // TODO: Validate that the expected addresses were written to the chain

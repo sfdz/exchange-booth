@@ -16,10 +16,14 @@ pub struct InitializeExchangeBooth<'info> {
         space = ExchangeBooth::LEN
     )]
     pub exchange_booth: Account<'info, ExchangeBooth>,
+
     #[account(mut)]
     pub admin: Signer<'info>,
+
     pub mint0: Account<'info, Mint>,
+
     pub mint1: Account<'info, Mint>,
+
     // Note that the PDA of the vaults is independent of the exchange booth,
     // so the admin can deposit to one vault and the funds will provide liquidity
     // to all of their exchange booths that use that token.
@@ -35,6 +39,7 @@ pub struct InitializeExchangeBooth<'info> {
     // Box allocates the accounts to the heap, which is a workaround for errors like
     // `Stack offset of 4152 exceeded max offset of 4096 by 56 bytes, please minimize large stack variables`
     pub vault0: Box<Account<'info, TokenAccount>>,
+
     #[account(
         init,
         payer = admin,
@@ -44,9 +49,13 @@ pub struct InitializeExchangeBooth<'info> {
         bump
     )]
     pub vault1: Box<Account<'info, TokenAccount>>,
+
     pub oracle: Account<'info, Oracle>,
+
     pub token_program: Program<'info, Token>,
+
     pub system_program: Program<'info, System>,
+    
     // Required to create token accounts
     pub rent: Sysvar<'info, Rent>
 }
