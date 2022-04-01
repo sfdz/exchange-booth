@@ -188,6 +188,44 @@ describe("exchange-booth", async () => {
     // ...Then both the user accounts and vault accounts have the expected balances
   });
 
+  it("Does not allow a rando to withdraw from vaults using their own signature", async () => {
+    // Given an existing exchange booth with tokens in vault0
+    const exchangeBoothInfo = await initializeExchangeBoothHappyPath(2, 0);
+
+    await program.rpc.deposit(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          admin: admin.publicKey,
+          mint: mints[0],
+          from: adminTokenAccounts[0].address,
+          vault: exchangeBoothInfo.vault0,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [admin]
+      }
+    );
+
+    // When an attacker tries to withdraw from vault0...
+    await program.rpc.withdraw(
+      new anchor.BN(10),
+      {
+        accounts: {
+          exchangeBooth: exchangeBoothInfo.publicKey,
+          admin: admin.publicKey,
+          mint: mints[0],
+          to: userTokenAccounts[0].address, // attacker's address
+          vault: exchangeBoothInfo.vault0,
+          tokenProgram: TOKEN_PROGRAM_ID
+        },
+        signers: [user] // attacker's signature instead of admin's
+      })
+      // ...Then we get an error due to the unknown signer
+      .then(_ => new Error("User should not have withdraw permission"))
+      .catch(_ => null);
+  });
+
   // Wraps the logic needed to initialize an exchange booth. This is not called in
   // beforeEach because we also want to test cases where this is expected to fail
   async function initializeExchangeBoothHappyPath(price: number, exponent: number): Promise<ExchangeBoothInfo> {

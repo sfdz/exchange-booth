@@ -9,4 +9,4 @@ The code is __not__ production-ready and is only meant to demonstrate the progra
 * [Install Rust, Solana, Yarn, and Anchor](https://project-serum.github.io/anchor/getting-started/installation.html#installing-dependencies)
 * `anchor test`
 
-The test suite will operate on a test validator running on your local machine.
+The test suite will run on your local machine using a test validator whose state isn't saved between runs.

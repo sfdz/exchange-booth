@@ -32,8 +32,8 @@ pub mod exchange_booth {
         Ok(())
     }
 
-    // Note that non-account instruction data is specified in this function header,
-    // in this case the number of tokens to deposit.
+    // Note that all of the accounts are contained by the Context object while other parameters,
+    // in this case the number of tokens to deposit, are defined directly in the function signature.
     pub fn deposit(ctx: Context<Deposit>, deposit_amount: u64) -> Result<()> {
         // TODO: Validate that the given token belongs in this exchange booth
         let accounts = ctx.accounts;
